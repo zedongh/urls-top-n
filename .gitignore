@@ -1,0 +1,8 @@
+*.txt
+urls-*
+*.iml
+*.idea/
+target/
+out/
+*.hprof
+*.tmp
