@@ -1,10 +1,10 @@
 package topn;
 
+import domain.URLEntry;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import util.Tuple;
 import util.URLGenerator;
 
 import java.io.File;
@@ -68,10 +68,10 @@ public class TestFreqTopN {
     public void test10KUrls() {
         FreqTopN topN = new FreqTopN(100);
         topN.fit(TEST_1W);
-        Iterator<Tuple<String, Long>> result = topN.getResult();
+        Iterator<URLEntry> result = topN.getResult();
         while (result.hasNext()) {
-            Tuple<String, Long> tup = result.next();
-            Assert.assertEquals(urlMap.get(tup.getFirst()), tup.getSecond());
+            URLEntry tup = result.next();
+            Assert.assertEquals(urlMap.get(tup.getUrl()), Long.valueOf(tup.getCount()));
         }
     }
 }

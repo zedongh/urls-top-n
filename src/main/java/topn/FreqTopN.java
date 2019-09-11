@@ -1,9 +1,17 @@
 package topn;
 
+import domain.URLEntry;
 import util.FixedSizeHeap;
-import util.Tuple;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Stack;
@@ -13,20 +21,25 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.counting;
 
-
+/**
+ * Algorithm for URL frequency top n problem.
+ */
 public class FreqTopN {
-
+    /**
+     * The maximum memory limit (bytes) of program.
+     */
     private static final long MEMORY_LIMIT = 1024 * 1024 * 1024;
-
+    /**
+     * A safety file split size baseline, for program running will always not exceed the MEMORY_LIMIT.
+     */
     private static final long QUARTER_MEMORY = MEMORY_LIMIT / 4;
-
-    private FixedSizeHeap<Tuple<String, Long>> fixedSizeHeap;
+    /**
+     * A fixed size min heap for collecting statistical results.
+     */
+    private FixedSizeHeap<URLEntry> fixedSizeHeap;
 
     public FreqTopN(int n) {
-        fixedSizeHeap = new FixedSizeHeap<>(n, (t1, t2) -> {
-            long cmp = t1.getSecond() - t2.getSecond();
-            return cmp == 0 ? 0 : cmp < 0 ? -1 : 1;
-        });
+        fixedSizeHeap = new FixedSizeHeap<>(n);
     }
 
     public static void main(String[] args) {
@@ -55,10 +68,15 @@ public class FreqTopN {
         }
     }
 
+    /**
+     * Collecting strings from string stream, group its frequency into map.
+     */
     private Map<String, Long> lineFreqCount(Stream<String> lines) {
         return lines.collect(Collectors.groupingBy(Function.identity(), counting()));
     }
-
+    /**
+     * Link lineFreqCount method, collecting lines from file, group its frequency into map.
+     */
     private Map<String, Long> fileLineFreqCount(File file) throws FileNotFoundException {
         Stream<String> lines = new BufferedReader(new InputStreamReader(new FileInputStream(file))).lines();
         return lineFreqCount(lines);
@@ -67,11 +85,19 @@ public class FreqTopN {
     private void urlCount(File file) throws IOException {
         long start = System.currentTimeMillis();
         Map<String, Long> urlCountPairs = fileLineFreqCount(file);
-        urlCountPairs.forEach((key, value) -> fixedSizeHeap.insert(Tuple.of(key, value)));
+        urlCountPairs.forEach((key, value) -> fixedSizeHeap.insert(new URLEntry(key, value)));
         long time = System.currentTimeMillis() - start;
         System.out.println(String.format("handle in memory spend %s (s)", time / 1000));
     }
 
+    /**
+     * Try to split the big file into many part of files which file size will not exceed the QUARTER_MEMORY limit.
+     * i.e. when call this method, program will create many temporary files, this need disk have at least origin
+     * file size free space for saving.
+     * The number of part file will be file_size / quarter_memory.
+     * For each line of origin file, will calculate its hash value to decide which file part it will to split into.
+     * Also This may cause IOException for file opening, reading, writing, creating exception.
+     */
     private File[] fileSplit(File file) throws IOException {
         // compute bucket num
         int bucketNum = (int) (file.length() / QUARTER_MEMORY);
@@ -103,6 +129,10 @@ public class FreqTopN {
         return slots;
     }
 
+    /**
+     * Try to split file into pieces then conquer each piece of file in memory.
+     * This method will always clear the temporary file which created during task dividing.
+     */
     private void divideAndConquer(File file) throws IOException {
 
         File[] files = fileSplit(file);
@@ -118,7 +148,11 @@ public class FreqTopN {
         }
     }
 
-
+    /**
+     * Fit the dataset, this method behavior will depend on the param file size.
+     * If file size is small enough, it will be handle in memory directly.
+     * Otherwise, task will be divided and conquered.
+     */
     public void fit(File file) {
         if (!file.exists()) {
             System.err.println(String.format("file [%s] not found", file.getName()));
@@ -139,7 +173,7 @@ public class FreqTopN {
         }
     }
 
-    public Iterator<Tuple<String, Long>> getResult() {
+    public Iterator<URLEntry> getResult() {
         return fixedSizeHeap.iterator();
     }
 
@@ -147,8 +181,12 @@ public class FreqTopN {
         fit(new File(filename));
     }
 
+    /**
+     * Emit statistical results in heap into specific file. Before calling this method, should always call fit first.
+     * The result is guaranteed to be ordered
+     */
     private void emitResult(String filename) throws IOException {
-        Stack<Tuple<String, Long>> stack = new Stack<>();
+        Stack<URLEntry> stack = new Stack<>();
         while (!fixedSizeHeap.isEmpty()) {
             stack.push(fixedSizeHeap.pop());
         }
@@ -161,8 +199,8 @@ public class FreqTopN {
 
         BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(resultFile)));
         while (!stack.isEmpty()) {
-            Tuple<String, Long> element = stack.pop();
-            writer.write(element.getFirst() + " " + element.getSecond() + '\n');
+            URLEntry element = stack.pop();
+            writer.write(element.getUrl() + " " + element.getCount() + '\n');
         }
         writer.flush();
         writer.close();

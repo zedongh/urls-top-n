@@ -7,6 +7,15 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.util.Random;
 
+/**
+ * A tools for gen random URL (Uniform Resource Locator).
+ * Reference: https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Generic_syntax
+ * URI syntax:
+ *  URI = scheme:[//authority]path[?query][#fragment]
+ *  authority = [userinfo@]host[:port]
+ * For simplify, this generator will always generate:
+ *  scheme:host[:post]path[?query][#fragment]
+ */
 public class URLGenerator {
 
     private static final String[] SCHEMES = new String[]{"http", "https", "ftp", "mailto", "file", "data", "irc"};
@@ -23,7 +32,7 @@ public class URLGenerator {
 
     private static final double DEFAULT_REPEAT_PROB = 0.001;
 
-    private static final int DEFAULT_REPEAT_MAX = 5000;
+    private static final int DEFAULT_REPEAT_FACTOR = 5000;
 
     private static Random random = new Random();
 
@@ -90,7 +99,7 @@ public class URLGenerator {
             writer.write(url + '\n');
             double lucky = random.nextDouble();
             if (lucky < DEFAULT_REPEAT_PROB) {
-                int max = (int) ((DEFAULT_REPEAT_PROB + random.nextDouble()) * DEFAULT_REPEAT_MAX);
+                int max = (int) ((DEFAULT_REPEAT_PROB + random.nextDouble()) * DEFAULT_REPEAT_FACTOR);
                 long repeatTimes = random.nextInt(max);
                 repeatTimes = Math.min(repeatTimes, total - 2 - i);
                 for (int j = 0; j < repeatTimes; j++) {
